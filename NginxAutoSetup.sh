@@ -2,7 +2,7 @@
 
 # Check if Nginx is installed
 if command -v nginx &>/dev/null; then
-    echo "Nginx is already installed."
+    echo "***Nginx is already installed.***"
 else
     # Detect the operating system
     if [[ -f /etc/os-release ]]; then
@@ -12,7 +12,7 @@ else
         source /etc/lsb-release
         OS_NAME=$DISTRIB_ID
     else
-        echo "Unsupported operating system."
+        echo "***Unsupported operating system.***"
         exit 1
     fi
 
@@ -27,7 +27,7 @@ else
             sudo yum install nginx -y
             ;;
         *)
-            echo "Unsupported operating system."
+            echo "***Unsupported operating system.***"
             exit 1
             ;;
     esac
@@ -99,4 +99,4 @@ ln -s /etc/nginx/sites-available/$WEBSITE_NAME /etc/nginx/sites-enabled/
 # Step 3: Reload Nginx
 sudo systemctl reload nginx
 
-echo "Nginx configuration for $WEBSITE_NAME created and linked. Nginx reloaded."
+echo "***Nginx configuration for $WEBSITE_NAME created and linked. Nginx reloaded.***"
