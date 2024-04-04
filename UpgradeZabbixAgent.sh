@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Created on June 7, 2020
 #
