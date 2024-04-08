@@ -1,1 +1,14 @@
+name: Test GitHub Runner
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Print Hello World
+        run: echo "Hello, world!"
 
