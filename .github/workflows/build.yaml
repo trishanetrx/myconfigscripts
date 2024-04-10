@@ -1,14 +1,25 @@
-name: Test GitHub Runner
+name: Stress Test Self-Hosted Runner
 
-on: [push]
+on:
+  workflow_dispatch:
 
 jobs:
-  test:
+  stress:
     runs-on: self-hosted
     steps:
-      - name: Check out code
-        uses: actions/checkout@v2
+      - name: Install stress-ng
+        run: |
+          sudo apt update
+          sudo apt install -y stress-ng
 
-      - name: Print Hello World
-        run: echo "Hello, world!"
+      - name: Stress test CPU
+        run: stress-ng --cpu 4 --timeout 1m
 
+      - name: Stress test Memory
+        run: stress-ng --vm 2 --vm-bytes 1G --timeout 1m
+
+      - name: Stress test Disk I/O
+        run: stress-ng --io 2 --timeout 1m
+
+      - name: Stress test Network
+        run: stress-ng --network 2 --timeout 1m
