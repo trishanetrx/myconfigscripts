@@ -22,4 +22,4 @@ jobs:
         run: stress-ng --io 2 --timeout 1m
 
       - name: Stress test Network
-        run: stress-ng --network 2 --timeout 1m
+        run: stress-ng --sock 2 --timeout 1m
