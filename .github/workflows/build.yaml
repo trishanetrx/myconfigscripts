@@ -1,25 +1,10 @@
-name: Stress Test Self-Hosted Runner
-
+name: Actions Runner Controller Demo
 on:
   workflow_dispatch:
 
 jobs:
-  stress:
-    runs-on: self-hosted
+  Explore-GitHub-Actions:
+    # You need to use the INSTALLATION_NAME from the previous step
+    runs-on: arc-runner-set
     steps:
-      - name: Install stress-ng
-        run: |
-          sudo apt update
-          sudo apt install -y stress-ng
-
-      - name: Stress test CPU
-        run: stress-ng --cpu 4 --timeout 1m
-
-      - name: Stress test Memory
-        run: stress-ng --vm 2 --vm-bytes 1G --timeout 1m
-
-      - name: Stress test Disk I/O
-        run: stress-ng --io 2 --timeout 1m
-
-      - name: Stress test Network
-        run: stress-ng --sock 2 --timeout 1m
+    - run: echo "🎉 This job uses runner scale set runners!"
