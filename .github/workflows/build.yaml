@@ -17,10 +17,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install stress -y
 
       - name: Stress CPU
-        run: stress --cpu 8 --timeout 120s  # Stress CPU for 2 minutes using 8 workers
+        run: stress --cpu 8 --timeout 180s  # Stress CPU for 2 minutes using 8 workers
 
       - name: Stress Memory
-        run: stress --vm 8 --vm-bytes 1G --timeout 120s  # Stress memory for 2 minutes using 8 workers and 1GB each
+        run: stress --vm 8 --vm-bytes 2G --timeout 120s  # Stress memory for 2 minutes using 8 workers and 1GB each
 
       - name: Stress Disk
         run: |
