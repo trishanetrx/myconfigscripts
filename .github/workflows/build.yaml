@@ -1,36 +1,29 @@
-name: Stress Test and Autoscale Runners
+name: Stress Test
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'  # Run every 6 hours (adjust as needed)
+  push:
+    branches:
+      - main  # Change this to your main branch name if it's different
 
 jobs:
   stress-test:
-    name: Stress Test Runners
+    name: Stress Test
     runs-on: self-hosted
     steps:
       - name: Clone repository
         uses: actions/checkout@v2
 
-      - name: Install dependencies
-        run: npm install  # Replace with your dependency installation command
+      - name: Install stress tool
+        run: sudo apt-get update && sudo apt-get install stress -y
 
-      - name: Run stress test
+      - name: Stress CPU
+        run: stress --cpu 8 --timeout 120s  # Stress CPU for 2 minutes using 8 workers
+
+      - name: Stress Memory
+        run: stress --vm 8 --vm-bytes 1G --timeout 120s  # Stress memory for 2 minutes using 8 workers and 1GB each
+
+      - name: Stress Disk
         run: |
-          npm run stress-test  # Replace with your stress testing command
+          dd if=/dev/zero of=/tmp/test bs=1M count=1024 conv=fdatasync  # Write 1GB of zeros to /tmp/test
+          rm /tmp/test  # Delete the temporary file after writing
 
-  autoscale:
-    name: Autoscale Runners
-    runs-on: self-hosted
-    needs: stress-test
-    steps:
-      - name: Setup Kubernetes CLI
-        uses: azure/k8s-set-context@v1
-        with:
-          kubeconfig: ${{ secrets.KUBE_CONFIG_DATA }}
-
-      - name: Scale Runners
-        run: |
-          # Your scaling script goes here
-          # Example:
-          # kubectl scale --replicas=3 deployment/actions-runner-controller -n actions-runner-system
