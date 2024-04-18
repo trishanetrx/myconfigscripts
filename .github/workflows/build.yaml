@@ -8,10 +8,13 @@ on:
 jobs:
   job_1:
     name: Add 3 and 7
-    runs-on: actions_runner_dev
+    runs-on: ubuntu-latest
     steps:
-      - shell: bash
-        run: |
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+      - run: |
           expr 3 + 7 > math-homework.txt
       - name: Upload math result for job 1
         uses: actions/upload-artifact@v3
@@ -22,14 +25,17 @@ jobs:
   job_2:
     name: Multiply by 9
     needs: job_1
-    runs-on: actions_runner_dev
+    runs-on: ubuntu-latest
     steps:
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
       - name: Download math result for job 1
         uses: actions/download-artifact@v3
         with:
           name: homework
-      - shell: bash
-        run: |
+      - run: |
           value=$(cat math-homework.txt)
           expr $value \* 9 > math-homework.txt
       - name: Upload math result for job 2
@@ -41,14 +47,17 @@ jobs:
   job_3:
     name: Display results
     needs: job_2
-    runs-on: actions_runner_dev
+    runs-on: ubuntu-latest
     steps:
+      - name: Set up Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
       - name: Download math result for job 2
         uses: actions/download-artifact@v3
         with:
           name: homework
       - name: Print the final result
-        shell: bash
         run: |
           value=$(cat math-homework.txt)
           echo "The result is $value"
