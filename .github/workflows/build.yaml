@@ -12,13 +12,13 @@ jobs:
           sudo apt update
           sudo apt install -y stress-ng
       - name: Stress test CPU
-        run: stress-ng --cpu 4 --timeout 1m
+        run: stress-ng --cpu 4 --timeout 2m
 
       - name: Stress test Memory
-        run: stress-ng --vm 2 --vm-bytes 1G --timeout 1m
+        run: stress-ng --vm 2 --vm-bytes 1G --timeout 2m
 
       - name: Stress test Disk I/O
-        run: stress-ng --io 2 --timeout 1m
+        run: stress-ng --io 2 --timeout 2m
 
       - name: Stress test Network
         run: stress-ng --sock 2 --timeout 1m
