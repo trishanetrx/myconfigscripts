@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # Check if Nginx is installed
+echo -e "\e[34mCheck if Nginx is installed\e[0m"
+
 if command -v nginx &>/dev/null; then
-    echo "***Nginx is already installed.***"
+    echo -e "\e[32m***Nginx is already installed.***\e[0m"
 else
     # Detect the operating system
     if [[ -f /etc/os-release ]]; then
@@ -12,7 +14,7 @@ else
         source /etc/lsb-release
         OS_NAME=$DISTRIB_ID
     else
-        echo "***Unsupported operating system.***"
+        echo -e "\e[31m***Unsupported operating system.***\e[0m"
         exit 1
     fi
 
