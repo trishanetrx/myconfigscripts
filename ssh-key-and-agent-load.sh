@@ -1,7 +1,9 @@
 #!/bin/bash
 
+echo -e "\e[34mTHIS SCRIPT LOADS THE PRIVATE KEY TO THE SSH AGENT IF ITS NOT LOADED\e[0m"
+
 # Prompt the user for the path to the private key
-read -p "Please enter the full path to your private SSH key: " key_path
+read -p "Please enter the full path to your private SSH key(/root/.ssh/your-key): " key_path
 
 # Verify the provided key path exists
 if [ ! -f "$key_path" ]; then
