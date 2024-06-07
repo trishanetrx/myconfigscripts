@@ -37,5 +37,6 @@ fi
 # Inform the user of the changes
 echo "The SSH agent startup script has been created at $script_path"
 echo "The script has been added to your ~/.bashrc file."
-echo "To apply the changes, run: source ~/.bashrc"
+#echo "To apply the changes, run: source ~/.bashrc"
 
+source ~/.bashrc
