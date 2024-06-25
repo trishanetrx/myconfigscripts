@@ -141,6 +141,11 @@ if [[ $reverse_lvm == "yes" ]]; then
     echo -e "d\nw" | fdisk "/dev/$disk"
     partprobe "/dev/$disk"
 
+    sudo sed -i "\|$lv_path   /$mount_directory   ext4   defaults   0 0|d" /etc/fstab
+
+    systemctl daemon-reload
+
+
     # Clean up log files
     rm -f "$disk_log" "$vg_name_log" "$lv_name_log" "$lv_size_log" "$mount_directory_log"
 
