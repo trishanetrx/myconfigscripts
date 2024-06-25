@@ -37,24 +37,45 @@ sudo systemctl restart apache2
 # Secure MySQL installation
 sudo mysql_secure_installation
 
-# Create MySQL database and user for WordPress
+# Create WordPress database and user
 sudo mysql -u root <<MYSQL_SCRIPT
 CREATE DATABASE wordpress;
-CREATE USER 'wordpress'@'localhost' IDENTIFIED BY 'Power@231*';
+CREATE USER 'wordpress'@'localhost' IDENTIFIED BY 'Power231*';
 GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
 FLUSH PRIVILEGES;
-QUIT
 MYSQL_SCRIPT
 
-# Update WordPress configuration file with database details
-sudo -u www-data sed -i 's/database_name_here/wordpress/' /srv/www/wordpress/wp-config.php
-sudo -u www-data sed -i 's/username_here/wordpress/' /srv/www/wordpress/wp-config.php
-sudo -u www-data sed -i "s/password_here/<your-password>/" /srv/www/wordpress/wp-config.php
+# Copy WordPress configuration file and set database credentials
+sudo -u www-data cp /srv/www/wordpress/wp-config-sample.php /srv/www/wordpress/wp-config.php
+sudo -u www-data sed -i "s/database_name_here/wordpress/" /srv/www/wordpress/wp-config.php
+sudo -u www-data sed -i "s/username_here/wordpress/" /srv/www/wordpress/wp-config.php
+sudo -u www-data sed -i "s/password_here/Power231*/" /srv/www/wordpress/wp-config.php
 
-# Remove salts from WordPress configuration file
-sudo -u www-data sed -i '/define(.*SALT.*);/d' /srv/www/wordpress/wp-config.php
 
-# Open WordPress configuration file for further editing
-sudo -u www-data nano /srv/www/wordpress/wp-config.php
+config_file="/srv/www/wordpress/wp-config.php"
 
-echo "WordPress installation completed. Please configure your unique phrases in wp-config.php."
+patterns=(
+    'define( 'AUTH_KEY',         'put your unique phrase here' );'
+    'define( 'SECURE_AUTH_KEY',  'put your unique phrase here' );'
+    'define( 'LOGGED_IN_KEY',    'put your unique phrase here' );'
+    'define( 'NONCE_KEY',        'put your unique phrase here' );'
+    'define( 'AUTH_SALT',        'put your unique phrase here' );'
+    'define( 'SECURE_AUTH_SALT', 'put your unique phrase here' );'
+    'define( 'LOGGED_IN_SALT',   'put your unique phrase here' );'
+    'define( 'NONCE_SALT',       'put your unique phrase here' );'
+)
+
+# Loop through the patterns and remove matching lines from the file
+for pattern in "${patterns[@]}"; do
+    sudo sed -i "/$pattern/d" "$config_file"
+done
+
+# Add lines above the specified comment
+sudo sed -i "/\/\* That's all, stop editing! Happy publishing. \*\//i \
+define('FS_METHOD', 'direct'); \
+define('FS_CHMOD_DIR',0755); \
+define('FS_CHMOD_FILE',0644);" "$config_file"
+
+echo "Lines removed and added to $config_file"
+
+sudo systemctl restart apache2
