@@ -145,6 +145,8 @@ if [[ $reverse_lvm == "yes" ]]; then
 
     systemctl daemon-reload
 
+    rm -rf "$mount_directory"
+
 
     # Clean up log files
     rm -f "$disk_log" "$vg_name_log" "$lv_name_log" "$lv_size_log" "$mount_directory_log"
