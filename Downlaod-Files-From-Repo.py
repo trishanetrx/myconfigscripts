@@ -1,20 +1,38 @@
 import requests
 import os
+from getpass import getpass
 
 def download_file_from_github(repo, file_name, output_path, token=None):
     url = f"https://raw.githubusercontent.com/{repo}/main/{file_name}"
     headers = {"Accept": "application/vnd.github.v3.raw"}
+    
     if token:
         headers["Authorization"] = f"token {token}"
-    
+        auth_mode = "Token Authentication"
+    else:
+        auth_mode = "Username/Password Authentication"
+
     response = requests.get(url, headers=headers)
     
     if response.status_code == 200:
         with open(output_path, 'wb') as f:
             f.write(response.content)
-        print(f"File downloaded successfully: {output_path}")
+        print(f"File downloaded successfully using {auth_mode}: {output_path}")
+    elif response.status_code == 404 and not token:
+        # Retry with username/password authentication if token fails and token is not provided
+        username = input("Enter your GitHub username: ")
+        password = getpass("Enter your GitHub password: ")
+        auth = (username, password)
+        response = requests.get(url, headers=headers, auth=auth)
+        
+        if response.status_code == 200:
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+            print(f"File downloaded successfully using {auth_mode}: {output_path}")
+        else:
+            print(f"Failed to download file '{file_name}' using {auth_mode}: {response.status_code} - {response.text}")
     else:
-        print(f"Failed to download file '{file_name}': {response.status_code} - {response.text}")
+        print(f"Failed to download file '{file_name}' using {auth_mode}: {response.status_code} - {response.text}")
 
 def list_files(repo):
     url = f"https://api.github.com/repos/{repo}/contents/"
@@ -55,6 +73,5 @@ def download_selected_files(repo, output_dir, token=None):
 # Example usage
 repo = "trishanetrx/myconfigscripts"  # Replace with your GitHub repository path
 output_dir = "/home"  # Replace with the desired local output directory
-token = "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"  # Replace with your GitHub token if the repository is private, else set it to None
 
-download_selected_files(repo, output_dir, token)
+download_selected_files(repo, output_dir)
