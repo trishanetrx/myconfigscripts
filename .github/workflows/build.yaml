@@ -1,29 +1,43 @@
-name: Stress Test
+name: "CodeQL"
 
 on:
   push:
-    branches:
-      - main  # Change this to your main branch name if it's different
+    branches: [ main, codeQL ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ main, codeQL ]
+  schedule:
+    - cron: '0 0 * * 0'
 
 jobs:
-  stress-test:
-    name: Stress Test
+  analyze:
+    name: Analyze
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java' ] # Add other languages as needed
+
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Install stress tool
-        run: sudo apt-get update && sudo apt-get install stress -y
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
 
-      - name: Stress CPU
-        run: stress --cpu 8 --timeout 180s  # Stress CPU for 2 minutes using 8 workers
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
 
-      - name: Stress Memory
-        run: stress --vm 8 --vm-bytes 2G --timeout 120s  # Stress memory for 2 minutes using 8 workers and 1GB each
+    # If you wish to specify custom build commands, remove the autobuild step
+    # and uncomment the following three lines.
+    # - run: |
+    #     ./configure
+    #     make
 
-      - name: Stress Disk
-        run: |
-          dd if=/dev/zero of=/tmp/test bs=1M count=1024 conv=fdatasync  # Write 1GB of zeros to /tmp/test
-          rm /tmp/test  # Delete the temporary file after writing
-
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:${{ matrix.language }}"
