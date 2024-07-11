@@ -47,6 +47,9 @@ GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
 FLUSH PRIVILEGES;
 MYSQL_SCRIPT
 
+# Start mysql server
+sudo systemctl start mysql
+
 # Copy WordPress configuration file and set database credentials
 sudo -u www-data cp /srv/www/wordpress/wp-config-sample.php /srv/www/wordpress/wp-config.php
 sudo -u www-data sed -i "s/database_name_here/wordpress/" /srv/www/wordpress/wp-config.php
