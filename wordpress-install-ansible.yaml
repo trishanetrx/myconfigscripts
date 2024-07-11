@@ -1,0 +1,157 @@
+---
+- name: Install WordPress on Apache with MySQL
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - apache2
+          - ghostscript
+          - libapache2-mod-php
+          - mysql-server
+          - php
+          - php-bcmath
+          - php-curl
+          - php-imagick
+          - php-intl
+          - php-json
+          - php-mbstring
+          - php-mysql
+          - php-xml
+          - php-zip
+        state: present
+
+    - name: Create directory for WordPress installation
+      file:
+        path: /srv/www
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Download latest WordPress release
+      get_url:
+        url: https://wordpress.org/latest.tar.gz
+        dest: /srv/www/latest.tar.gz
+
+    - name: Extract WordPress
+      unarchive:
+        src: /srv/www/latest.tar.gz
+        dest: /srv/www
+        remote_src: yes
+        owner: www-data
+        group: www-data
+
+    - name: Remove WordPress tarball
+      file:
+        path: /srv/www/latest.tar.gz
+        state: absent
+
+    - name: Configure Apache virtual host for WordPress
+      copy:
+        dest: /etc/apache2/sites-available/wordpress.conf
+        content: |
+          <VirtualHost *:80>
+              DocumentRoot /srv/www/wordpress
+              <Directory /srv/www/wordpress>
+                  Options FollowSymLinks
+                  AllowOverride Limit Options FileInfo
+                  DirectoryIndex index.php
+                  Require all granted
+              </Directory>
+              <Directory /srv/www/wordpress/wp-content>
+                  Options FollowSymLinks
+                  Require all granted
+              </Directory>
+          </VirtualHost>
+
+    - name: Enable WordPress virtual host
+      command: a2ensite wordpress
+
+    - name: Enable Apache rewrite module
+      command: a2enmod rewrite
+
+    - name: Disable default Apache virtual host
+      command: a2dissite 000-default
+
+    - name: Reload Apache to apply changes
+      service:
+        name: apache2
+        state: reloaded
+
+    - name: Start MySQL service
+      service:
+        name: mysql
+        state: started
+
+    - name: Create WordPress database and user using sudo
+      shell: |
+        mysql -u root <<MYSQL_SCRIPT
+        DROP USER IF EXISTS 'wordpress'@'localhost';
+        CREATE USER 'wordpress'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Power231*';
+        CREATE DATABASE IF NOT EXISTS wordpress;
+        GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
+        FLUSH PRIVILEGES;
+        MYSQL_SCRIPT
+      args:
+        executable: /bin/bash
+      become: true
+
+    - name: Copy WordPress configuration file
+      copy:
+        src: /srv/www/wordpress/wp-config-sample.php
+        dest: /srv/www/wordpress/wp-config.php
+        owner: www-data
+        group: www-data
+
+    - name: Set WordPress database credentials in configuration file
+      lineinfile:
+        path: /srv/www/wordpress/wp-config.php
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        owner: www-data
+        group: www-data
+      with_items:
+        - { regexp: 'database_name_here', line: "define('DB_NAME', 'wordpress');" }
+        - { regexp: 'username_here', line: "define('DB_USER', 'wordpress');" }
+        - { regexp: 'password_here', line: "define('DB_PASSWORD', 'Power231*');" }
+
+    - name: Remove placeholder keys and salts
+      lineinfile:
+        path: /srv/www/wordpress/wp-config.php
+        regexp: "{{ item }}"
+        state: absent
+      with_items:
+        - 'define("AUTH_KEY", "put your unique phrase here");'
+        - 'define("SECURE_AUTH_KEY", "put your unique phrase here");'
+        - 'define("LOGGED_IN_KEY", "put your unique phrase here");'
+        - 'define("NONCE_KEY", "put your unique phrase here");'
+        - 'define("AUTH_SALT", "put your unique phrase here");'
+        - 'define("SECURE_AUTH_SALT", "put your unique phrase here");'
+        - 'define("LOGGED_IN_SALT", "put your unique phrase here");'
+        - 'define("NONCE_SALT", "put your unique phrase here");'
+
+    - name: Add new secure keys from WordPress API
+      shell: curl -s https://api.wordpress.org/secret-key/1.1/salt/ | tee -a /srv/www/wordpress/wp-config.php
+
+    - name: Add additional configurations to wp-config.php
+      lineinfile:
+        path: /srv/www/wordpress/wp-config.php
+        insertafter: "/* That's all, stop editing! Happy publishing. */"
+        line: |
+          define('FS_METHOD', 'direct');
+          define('FS_CHMOD_DIR', 0755);
+          define('FS_CHMOD_FILE', 0644);
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Display final message
+      debug:
+        msg: "Installation complete. Please finish the setup by visiting http://localhost in your web browser."
