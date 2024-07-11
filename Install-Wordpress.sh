@@ -9,7 +9,9 @@ sudo mkdir -p /srv/www
 sudo chown www-data: /srv/www
 
 # Download and extract latest WordPress release
-curl https://wordpress.org/latest.tar.gz | sudo -u www-data tar zx -C /srv/www
+curl -o /srv/www/latest.tar.gz https://wordpress.org/latest.tar.gz
+sudo -u www-data tar zxvf /srv/www/latest.tar.gz -C /srv/www
+rm /srv/www/latest.tar.gz
 
 # Configure Apache virtual host for WordPress
 sudo tee /etc/apache2/sites-available/wordpress.conf >/dev/null <<EOF
@@ -28,19 +30,19 @@ sudo tee /etc/apache2/sites-available/wordpress.conf >/dev/null <<EOF
 </VirtualHost>
 EOF
 
-# Enable the virtual host
-sudo a2ensite wordpress.conf
+# Enable the virtual host and necessary modules
+sudo a2ensite wordpress
+sudo a2enmod rewrite
+sudo a2dissite 000-default
 
 # Restart Apache to apply changes
-sudo systemctl restart apache2
+sudo systemctl reload apache2
 
-# Secure MySQL installation
-sudo mysql_secure_installation
-
-# Create WordPress database and user
-sudo mysql -u root <<MYSQL_SCRIPT
-CREATE DATABASE wordpress;
-CREATE USER 'wordpress'@'localhost' IDENTIFIED BY 'Power231*';
+# Create or update WordPress database and user
+sudo mysql <<MYSQL_SCRIPT
+DROP USER IF EXISTS 'wordpress'@'localhost';
+CREATE USER 'wordpress'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Power231*';
+CREATE DATABASE IF NOT EXISTS wordpress;
 GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
 FLUSH PRIVILEGES;
 MYSQL_SCRIPT
@@ -51,18 +53,19 @@ sudo -u www-data sed -i "s/database_name_here/wordpress/" /srv/www/wordpress/wp-
 sudo -u www-data sed -i "s/username_here/wordpress/" /srv/www/wordpress/wp-config.php
 sudo -u www-data sed -i "s/password_here/Power231*/" /srv/www/wordpress/wp-config.php
 
-
+# Define config file path
 config_file="/srv/www/wordpress/wp-config.php"
 
+# Define patterns to remove
 patterns=(
-    'define( 'AUTH_KEY',         'put your unique phrase here' );'
-    'define( 'SECURE_AUTH_KEY',  'put your unique phrase here' );'
-    'define( 'LOGGED_IN_KEY',    'put your unique phrase here' );'
-    'define( 'NONCE_KEY',        'put your unique phrase here' );'
-    'define( 'AUTH_SALT',        'put your unique phrase here' );'
-    'define( 'SECURE_AUTH_SALT', 'put your unique phrase here' );'
-    'define( 'LOGGED_IN_SALT',   'put your unique phrase here' );'
-    'define( 'NONCE_SALT',       'put your unique phrase here' );'
+    'define('\''AUTH_KEY'\'', '\''put your unique phrase here'\'');'
+    'define('\''SECURE_AUTH_KEY'\'', '\''put your unique phrase here'\'');'
+    'define('\''LOGGED_IN_KEY'\'', '\''put your unique phrase here'\'');'
+    'define('\''NONCE_KEY'\'', '\''put your unique phrase here'\'');'
+    'define('\''AUTH_SALT'\'', '\''put your unique phrase here'\'');'
+    'define('\''SECURE_AUTH_SALT'\'', '\''put your unique phrase here'\'');'
+    'define('\''LOGGED_IN_SALT'\'', '\''put your unique phrase here'\'');'
+    'define('\''NONCE_SALT'\'', '\''put your unique phrase here'\'');'
 )
 
 # Loop through the patterns and remove matching lines from the file
@@ -70,12 +73,19 @@ for pattern in "${patterns[@]}"; do
     sudo sed -i "/$pattern/d" "$config_file"
 done
 
+# Add new secure keys from WordPress API
+curl -s https://api.wordpress.org/secret-key/1.1/salt/ | sudo tee -a $config_file > /dev/null
+
 # Add lines above the specified comment
 sudo sed -i "/\/\* That's all, stop editing! Happy publishing. \*\//i \
 define('FS_METHOD', 'direct'); \
-define('FS_CHMOD_DIR',0755); \
-define('FS_CHMOD_FILE',0644);" "$config_file"
+define('FS_CHMOD_DIR', 0755); \
+define('FS_CHMOD_FILE', 0644);" "$config_file"
 
 echo "Lines removed and added to $config_file"
 
+# Restart Apache
 sudo systemctl restart apache2
+
+# Instructions to complete the WordPress setup via the web interface
+echo "Installation complete. Please finish the setup by visiting http://localhost in your web browser."
