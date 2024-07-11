@@ -38,6 +38,9 @@ sudo a2dissite 000-default
 # Restart Apache to apply changes
 sudo systemctl reload apache2
 
+# Start mysql server
+sudo systemctl start mysql
+
 # Create or update WordPress database and user
 sudo mysql <<MYSQL_SCRIPT
 DROP USER IF EXISTS 'wordpress'@'localhost';
@@ -46,9 +49,6 @@ CREATE DATABASE IF NOT EXISTS wordpress;
 GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
 FLUSH PRIVILEGES;
 MYSQL_SCRIPT
-
-# Start mysql server
-sudo systemctl start mysql
 
 # Copy WordPress configuration file and set database credentials
 sudo -u www-data cp /srv/www/wordpress/wp-config-sample.php /srv/www/wordpress/wp-config.php
