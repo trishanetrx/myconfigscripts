@@ -15,7 +15,7 @@ sudo apt install postgresql-15 -y
 sudo systemctl is-enabled postgresql
 sudo systemctl status postgresql
 sudo -u postgres psql <<EOF
-CREATE USER sonarqube WITH PASSWORD 'uuUU123!@#';
+CREATE USER sonarqube WITH PASSWORD 'yourpasswordhere';
 CREATE DATABASE sonarqube OWNER sonarqube;
 GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonarqube;
 \l
@@ -47,7 +47,7 @@ sudo chown -R sonarqube:sonarqube /opt/sonarqube
 # Configure SonarQube settings
 sudo bash -c 'cat <<EOF > /opt/sonarqube/conf/sonar.properties
 sonar.jdbc.username=sonarqube
-sonar.jdbc.password=uuUU123!@#
+sonar.jdbc.password=yourpasswordhere
 sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube
 sonar.search.javaOpts=-Xmx512m -Xms512m -XX:MaxDirectMemorySize=256m -XX:+HeapDumpOnOutOfMemoryError
 sonar.web.host=127.0.0.1
@@ -89,7 +89,7 @@ sudo systemctl is-enabled nginx && sudo systemctl status nginx
 sudo bash -c 'cat <<EOF > /etc/nginx/sites-available/sonarqube.conf
 server {
     listen 80;
-    server_name sonarqube.booleanlabs.biz;
+    server_name your.websitehere.biz;
     access_log /var/log/nginx/sonar.access.log;
     error_log /var/log/nginx/sonar.error.log;
     proxy_buffers 16 64k;
