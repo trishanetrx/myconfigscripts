@@ -1,13 +1,15 @@
 #!/bin/bash
 
+# Prompt for user token
+read -p "Enter your SonarQube user token: " TOKEN
+
 # Create directories for JSON and text reports
 mkdir -p Booleanlab-sonar-reports/json
 mkdir -p Booleanlab-sonar-reports/human-readable-reports
 
-# Set the token and server URL
-TOKEN="squ_6940611dd3bb7f74a894dbf19d2105ead33a2b2a"
+# Set the server URL
 SERVER_URL="https://sonarqube.booleanlabs.biz"
-PYTHON_SCRIPT="sonar-report-download.py"
+PYTHON_SCRIPT="json_to_human_readable.py"
 
 # List of project keys and their corresponding repo names
 declare -A PROJECTS
