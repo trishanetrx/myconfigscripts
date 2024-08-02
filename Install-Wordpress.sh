@@ -44,7 +44,7 @@ sudo systemctl start mysql
 # Create or update WordPress database and user
 sudo mysql <<MYSQL_SCRIPT
 DROP USER IF EXISTS 'wordpress'@'localhost';
-CREATE USER 'wordpress'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Power231*';
+CREATE USER 'wordpress'@'localhost' IDENTIFIED WITH mysql_native_password BY 'yourpasswordhere*';
 CREATE DATABASE IF NOT EXISTS wordpress;
 GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
 FLUSH PRIVILEGES;
@@ -54,7 +54,7 @@ MYSQL_SCRIPT
 sudo -u www-data cp /srv/www/wordpress/wp-config-sample.php /srv/www/wordpress/wp-config.php
 sudo -u www-data sed -i "s/database_name_here/wordpress/" /srv/www/wordpress/wp-config.php
 sudo -u www-data sed -i "s/username_here/wordpress/" /srv/www/wordpress/wp-config.php
-sudo -u www-data sed -i "s/password_here/Power231*/" /srv/www/wordpress/wp-config.php
+sudo -u www-data sed -i "s/password_here/yourpasswordhere*/" /srv/www/wordpress/wp-config.php
 
 # Define config file path
 config_file="/srv/www/wordpress/wp-config.php"
