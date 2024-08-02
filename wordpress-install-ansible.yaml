@@ -92,7 +92,7 @@
       shell: |
         mysql -u root <<MYSQL_SCRIPT
         DROP USER IF EXISTS 'wordpress'@'localhost';
-        CREATE USER 'wordpress'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Power231*';
+        CREATE USER 'wordpress'@'localhost' IDENTIFIED WITH mysql_native_password BY 'yourpassowrdere*';
         CREATE DATABASE IF NOT EXISTS wordpress;
         GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
         FLUSH PRIVILEGES;
@@ -118,7 +118,7 @@
       with_items:
         - { regexp: 'database_name_here', line: "define('DB_NAME', 'wordpress');" }
         - { regexp: 'username_here', line: "define('DB_USER', 'wordpress');" }
-        - { regexp: 'password_here', line: "define('DB_PASSWORD', 'Power231*');" }
+        - { regexp: 'password_here', line: "define('DB_PASSWORD', 'yourpasswordhere*');" }
 
     - name: Remove placeholder keys and salts
       lineinfile:
