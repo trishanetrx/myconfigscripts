@@ -72,6 +72,7 @@ def download_selected_files(repo, output_dir, token=None):
 
 # Example usage
 repo = "trishanetrx/myconfigscripts"  # Replace with your GitHub repository path
-output_dir = "/home"  # Replace with the desired local output directory
+#output_dir = "/home"  # Replace with the desired local output directory
+output_dir = os.getcwd() 
 
 download_selected_files(repo, output_dir)
