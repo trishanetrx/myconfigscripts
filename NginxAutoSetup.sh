@@ -21,23 +21,19 @@ else
     # Install Nginx based on the detected OS
     case $OS_NAME in
         Ubuntu|Debian)
-            sudo apt-get update
-            sudo apt-get install nginx -y
+            sudo apt-get update && sudo apt-get install nginx -y && echo -e "\e[32m***Nginx installed successfully.***\e[0m" || echo -e "\e[31m***Failed to install Nginx.***\e[0m"
             ;;
         CentOS|RHEL)
-            sudo yum install epel-release -y
-            sudo yum install nginx -y
+            sudo yum install epel-release -y && sudo yum install nginx -y && echo -e "\e[32m***Nginx installed successfully.***\e[0m" || echo -e "\e[31m***Failed to install Nginx.***\e[0m"
             ;;
         *)
-            echo "***Unsupported operating system.***"
+            echo -e "\e[31m***Unsupported operating system.***\e[0m"
             exit 1
             ;;
     esac
 
     # Start Nginx service
-    sudo systemctl start nginx
-    sudo systemctl enable nginx
-    echo "Nginx installed and started."
+    sudo systemctl start nginx && sudo systemctl enable nginx && echo -e "\e[32m***Nginx started and enabled successfully.***\e[0m" || echo -e "\e[31m***Failed to start or enable Nginx.***\e[0m"
 fi
 
 # Prompt the user for server URL and port
@@ -96,9 +92,12 @@ fi
 echo "}" >> /etc/nginx/sites-available/$WEBSITE_NAME
 
 # Step 2: Create symbolic link
-ln -s /etc/nginx/sites-available/$WEBSITE_NAME /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/$WEBSITE_NAME /etc/nginx/sites-enabled/ && echo -e "\e[32m***Symbolic link created successfully.***\e[0m" || echo -e "\e[31m***Failed to create symbolic link.***\e[0m"
 
 # Step 3: Reload Nginx
-sudo systemctl reload nginx
+sudo systemctl reload nginx && echo -e "\e[32m***Nginx reloaded successfully.***\e[0m" || echo -e "\e[31m***Failed to reload Nginx.***\e[0m"
 
-echo "***Nginx configuration for $WEBSITE_NAME created and linked. Nginx reloaded.***"
+# Check Nginx status
+sudo systemctl status nginx && echo -e "\e[32m***Nginx is running.***\e[0m" || echo -e "\e[31m***Nginx is not running.***\e[0m"
+
+echo -e "\e[32m***Nginx configuration for $WEBSITE_NAME created and linked.***\e[0m"
