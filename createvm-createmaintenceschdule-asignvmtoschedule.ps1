@@ -55,24 +55,89 @@ function Create-MaintenanceSchedule {
     az maintenance configuration create --resource-group $resourceGroup --name $scheduleName --location $location --maintenance-scope $maintenanceScope --recur-every $recurrence --start-date-time $startDateTime --time-zone $timeZone --extension-properties "{'InGuestPatchMode':'Platform'}"
 }
 
-# Function to assign a VM to a maintenance schedule
+# Function to list VMs and assign a VM to a maintenance schedule
 function Assign-MaintenanceSchedule {
     param (
-        [string]$vmName,
+        [string]$subscriptionId,
         [string]$scheduleName
     )
 
     $resourceGroup = "my-test-resource-group"
 
-    # Get the subscription ID dynamically
-    $subscriptionId = (Get-AzContext).Subscription.Id
+    # Set the context to the selected subscription
+    Set-AzContext -SubscriptionId $subscriptionId
+
+    # List all VMs in the selected subscription
+    $vms = Get-AzVM
+    if ($vms.Count -eq 0) {
+        Write-Host "No VMs available in the selected subscription."
+        return
+    }
+
+    # Filter VMs that do not have a maintenance assignment
+    $unassignedVMs = @()
+    foreach ($vm in $vms) {
+        # Check for existing maintenance schedule assignment
+        $assignment = az maintenance assignment list --resource-group $vm.ResourceGroupName --resource-name $vm.Name --resource-type "virtualMachines" --provider-name "Microsoft.Compute" | ConvertFrom-Json
+        
+        if ($assignment.Count -eq 0) {
+            $unassignedVMs += $vm
+        }
+    }
+
+    if ($unassignedVMs.Count -eq 0) {
+        Write-Host "All VMs in the selected subscription already have a maintenance schedule assigned."
+        return
+    }
+
+    # Display the list of unassigned VMs
+    Write-Host "Available VMs without a maintenance schedule:"
+    for ($i = 0; $i -lt $unassignedVMs.Count; $i++) {
+        Write-Host "$($i + 1). $($unassignedVMs[$i].Name)"
+    }
+
+    # Prompt the user to select a VM
+    $vmIndex = Read-Host "Enter the number corresponding to the VM you want to assign"
+    if (-not ($vmIndex -as [int]) -or $vmIndex -lt 1 -or $vmIndex -gt $unassignedVMs.Count) {
+        Write-Host "Invalid selection. Returning to main menu."
+        return
+    }
+
+    # Get the selected VM's name
+    $vmName = $unassignedVMs[$vmIndex - 1].Name
+
+    # Construct the maintenance configuration ID dynamically
     $maintenanceConfigId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Maintenance/maintenanceConfigurations/$scheduleName"
 
+    # Assign the selected VM to the maintenance schedule
     az maintenance assignment create --resource-group $resourceGroup --resource-type virtualMachines --resource-name $vmName --provider-name Microsoft.Compute --configuration-assignment-name "myMaintenanceAssignment" --maintenance-configuration-id $maintenanceConfigId
+}
+
+# Function to let user choose subscription
+function Choose-Subscription {
+    # Get all subscriptions
+    $subscriptions = Get-AzSubscription
+    Write-Host "Available Subscriptions:"
+    for ($i = 0; $i -lt $subscriptions.Count; $i++) {
+        Write-Host "$($i + 1). $($subscriptions[$i].Name) ($($subscriptions[$i].Id))"
+    }
+
+    # Prompt the user to select a subscription
+    $subscriptionIndex = Read-Host "Enter the number corresponding to your choice of subscription"
+    if (-not ($subscriptionIndex -as [int]) -or $subscriptionIndex -lt 1 -or $subscriptionIndex -gt $subscriptions.Count) {
+        Write-Host "Invalid selection. Exiting script."
+        exit
+    }
+
+    # Return the selected subscription ID
+    return $subscriptions[$subscriptionIndex - 1].Id
 }
 
 # Main script loop
 do {
+    # Prompt user to choose subscription at the start
+    $subscriptionId = Choose-Subscription
+
     Write-Host "`nSelect an action:"
     Write-Host "1. Create VM"
     Write-Host "2. Create Maintenance Schedule"
@@ -124,9 +189,8 @@ do {
             Create-MaintenanceSchedule -scheduleName $scheduleName -location $location -maintenanceScope $maintenanceScope
         }
         "3" {
-            $vmName = Read-Host "Enter the VM name to assign"
             $scheduleName = Read-Host "Enter the maintenance schedule name"
-            Assign-MaintenanceSchedule -vmName $vmName -scheduleName $scheduleName
+            Assign-MaintenanceSchedule -subscriptionId $subscriptionId -scheduleName $scheduleName
         }
         "4" {
             Write-Host "Exiting script."
