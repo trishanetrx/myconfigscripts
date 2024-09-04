@@ -1,0 +1,350 @@
+# Import necessary modules
+Import-Module Az.Accounts
+Import-Module Az.Compute
+Import-Module Az.Maintenance
+
+# Helper function to log messages
+function Log-Message {
+    param (
+        [string]$message
+    )
+    Write-Host "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - $message"
+}
+
+# Function to securely get admin password
+function Get-SecurePassword {
+    $securePassword = Read-Host "Enter the administrator password" -AsSecureString
+    return $securePassword
+}
+
+# Function to let user choose a resource group
+function Choose-ResourceGroup {
+    try {
+        # Get all resource groups
+        $resourceGroups = Get-AzResourceGroup | Sort-Object -Property ResourceGroupName
+        Write-Host "Available Resource Groups:"
+        for ($i = 0; $i -lt $resourceGroups.Count; $i++) {
+            Write-Host "$($i + 1). $($resourceGroups[$i].ResourceGroupName)"
+        }
+
+        # Prompt the user to select a resource group
+        $resourceGroupIndex = Read-Host "Enter the number corresponding to your choice of resource group"
+        if (-not ($resourceGroupIndex -as [int]) -or $resourceGroupIndex -lt 1 -or $resourceGroupIndex -gt $resourceGroups.Count) {
+            Write-Host "Invalid selection. Exiting script."
+            Log-Message "User selected an invalid resource group index."
+            exit
+        }
+
+        # Return the selected resource group name
+        return $resourceGroups[$resourceGroupIndex - 1].ResourceGroupName
+    } catch {
+        Write-Host "An error occurred while choosing the resource group: $_"
+        Log-Message "Error selecting resource group: $_"
+        exit
+    }
+}
+
+# Function to list the five cheapest VM sizes
+function Get-CheapestVMSizes {
+    param (
+        [string]$location
+    )
+
+    try {
+        Write-Host "Fetching available VM sizes in the location '$location'..."
+        $vmSizes = Get-AzVMSize -Location $location | Sort-Object -Property NumberOfCores, MemoryInMB
+        if ($vmSizes.Count -eq 0) {
+            Write-Host "No VM sizes available for the specified location."
+            Log-Message "No VM sizes available in location '$location'."
+            exit
+        }
+
+        # Select the five cheapest VM sizes based on core count and memory
+        $cheapestVMSizes = $vmSizes | Select-Object -First 5
+
+        Write-Host "The five cheapest VM sizes in '$location' are:"
+        for ($i = 0; $i -lt $cheapestVMSizes.Count; $i++) {
+            Write-Host "$($i + 1). $($cheapestVMSizes[$i].Name) - $($cheapestVMSizes[$i].NumberOfCores) Cores, $($cheapestVMSizes[$i].MemoryInMB) MB RAM"
+        }
+
+        # Return the list of cheapest VM sizes
+        return $cheapestVMSizes
+    } catch {
+        Write-Host "An error occurred while fetching VM sizes: $_"
+        Log-Message "Error fetching VM sizes: $_"
+        exit
+    }
+}
+
+# Function to create a VM
+function Create-VM {
+    param (
+        [string]$vmName,
+        [string]$vmType,  # windows or linux
+        [string]$location,
+        [string]$resourceGroup,
+        [string]$vmSize,
+        [string]$adminUsername,
+        [string]$vnetName,
+        [string]$subnetName
+    )
+
+    try {
+        # Securely get the admin password
+        $adminPassword = Get-SecurePassword
+        $nsg = ""
+        $patchMode = "AutomaticByPlatform"
+        $assessmentMode = "AutomaticByPlatform"  # New setting
+
+        if ($vmType -eq "windows") {
+            $image = "MicrosoftWindowsServer:WindowsServer:2019-Datacenter:latest"
+
+            # Create the Windows VM
+            az vm create --resource-group $resourceGroup --name $vmName --image $image --size $vmSize --admin-username $adminUsername --admin-password $(ConvertFrom-SecureString $adminPassword -AsPlainText) --vnet-name $vnetName --subnet $subnetName --nsg $nsg --enable-agent --patch-mode $patchMode --location $location
+
+            # Set the assessment mode for the created Windows VM
+            $vm = Get-AzVM -ResourceGroupName $resourceGroup -Name $vmName
+            $vm.OsProfile.WindowsConfiguration.PatchSettings.AssessmentMode = $assessmentMode
+            Update-AzVM -ResourceGroupName $resourceGroup -VM $vm
+            Log-Message "Windows VM '$vmName' created successfully with automatic patching and assessment."
+        } elseif ($vmType -eq "linux") {
+            $image = "Canonical:UbuntuServer:18.04-LTS:latest"
+            
+            # Create the Linux VM
+            az vm create --resource-group $resourceGroup --name $vmName --image $image --size $vmSize --admin-username $adminUsername --authentication-type password --admin-password $(ConvertFrom-SecureString $adminPassword -AsPlainText) --vnet-name $vnetName --subnet $subnetName --nsg $nsg --enable-agent --patch-mode $patchMode --location $location
+            Log-Message "Linux VM '$vmName' created successfully with automatic patching."
+        } else {
+            Write-Host "Invalid VM type specified."
+            Log-Message "Failed to create VM: Invalid VM type '$vmType'."
+        }
+    } catch {
+        Write-Host "An error occurred while creating the VM: $_"
+        Log-Message "Error creating VM: $_"
+    }
+}
+
+# Function to create a maintenance schedule
+function Create-MaintenanceSchedule {
+    param (
+        [string]$scheduleName,
+        [string]$location,
+        [string]$maintenanceScope, # Valid values: Extension, Host, InGuestPatch, OSImage, Resource, SQLDB, SQLManagedInstance
+        [string]$resourceGroup
+    )
+
+    try {
+        $recurrence = "1day"
+        $startDateTime = "2024-09-04 00:00"
+        $timeZone = "Sri Lanka Standard Time"
+        
+        az maintenance configuration create --resource-group $resourceGroup --name $scheduleName --location $location --maintenance-scope $maintenanceScope --recur-every $recurrence --start-date-time $startDateTime --time-zone $timeZone --extension-properties "{'InGuestPatchMode':'Platform'}"
+        Log-Message "Maintenance schedule '$scheduleName' created successfully."
+    } catch {
+        Write-Host "An error occurred while creating the maintenance schedule: $_"
+        Log-Message "Error creating maintenance schedule: $_"
+    }
+}
+
+# Function to list VMs and assign a VM to a maintenance schedule
+function Assign-MaintenanceSchedule {
+    param (
+        [string]$subscriptionId,
+        [string]$scheduleName,
+        [string]$resourceGroup
+    )
+
+    try {
+        # Set the context to the selected subscription
+        Set-AzContext -SubscriptionId $subscriptionId
+
+        # List all VMs in the selected subscription
+        $vms = Get-AzVM
+        if ($vms.Count -eq 0) {
+            Write-Host "No VMs available in the selected subscription."
+            Log-Message "No VMs found in subscription '$subscriptionId'."
+            return
+        }
+
+        # Filter VMs that do not have a maintenance assignment
+        $unassignedVMs = @()
+        foreach ($vm in $vms) {
+            try {
+                # Check for existing maintenance schedule assignment
+                $assignment = az maintenance assignment list --resource-group $vm.ResourceGroupName --resource-name $vm.Name --resource-type "virtualMachines" --provider-name "Microsoft.Compute" | ConvertFrom-Json
+                
+                if ($assignment.Count -eq 0) {
+                    $unassignedVMs += $vm
+                }
+            } catch {
+                Log-Message "Error checking maintenance assignment for VM '$($vm.Name)': $_"
+            }
+        }
+
+        if ($unassignedVMs.Count -eq 0) {
+            Write-Host "All VMs in the selected subscription already have a maintenance schedule assigned."
+            Log-Message "All VMs already have a maintenance schedule in subscription '$subscriptionId'."
+            return
+        }
+
+        # Display the list of unassigned VMs
+        Write-Host "Available VMs without a maintenance schedule:"
+        for ($i = 0; $i -lt $unassignedVMs.Count; $i++) {
+            Write-Host "$($i + 1). $($unassignedVMs[$i].Name)"
+        }
+
+        # Prompt the user to select a VM
+        $vmIndex = Read-Host "Enter the number corresponding to the VM you want to assign"
+        if (-not ($vmIndex -as [int]) -or $vmIndex -lt 1 -or $vmIndex -gt $unassignedVMs.Count) {
+            Write-Host "Invalid selection. Returning to main menu."
+            Log-Message "User made an invalid selection for VM assignment."
+            return
+        }
+
+        # Get the selected VM's name
+        $vmName = $unassignedVMs[$vmIndex - 1].Name
+
+        # Construct the maintenance configuration ID dynamically
+        $maintenanceConfigId = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroup/providers/Microsoft.Maintenance/maintenanceConfigurations/$scheduleName"
+
+        # Assign the selected VM to the maintenance schedule
+        az maintenance assignment create --resource-group $resourceGroup --resource-type virtualMachines --resource-name $vmName --provider-name Microsoft.Compute --configuration-assignment-name "myMaintenanceAssignment" --maintenance-configuration-id $maintenanceConfigId
+        Log-Message "VM '$vmName' assigned to maintenance schedule '$scheduleName'."
+    } catch {
+        Write-Host "An error occurred while assigning the VM to the maintenance schedule: $_"
+        Log-Message "Error assigning VM to maintenance schedule: $_"
+    }
+}
+
+# Function to let user choose subscription
+function Choose-Subscription {
+    try {
+        # Get all subscriptions
+        $subscriptions = Get-AzSubscription
+        Write-Host "Available Subscriptions:"
+        for ($i = 0; $i -lt $subscriptions.Count; $i++) {
+            Write-Host "$($i + 1). $($subscriptions[$i].Name) ($($subscriptions[$i].Id))"
+        }
+
+        # Prompt the user to select a subscription
+        $subscriptionIndex = Read-Host "Enter the number corresponding to your choice of subscription"
+        if (-not ($subscriptionIndex -as [int]) -or $subscriptionIndex -lt 1 -or $subscriptionIndex -gt $subscriptions.Count) {
+            Write-Host "Invalid selection. Exiting script."
+            Log-Message "User selected an invalid subscription index."
+            exit
+        }
+
+        # Return the selected subscription ID
+        return $subscriptions[$subscriptionIndex - 1].Id
+    } catch {
+        Write-Host "An error occurred while choosing the subscription: $_"
+        Log-Message "Error selecting subscription: $_"
+        exit
+    }
+}
+
+# Main script loop
+do {
+    try {
+        # Prompt user to choose subscription at the start
+        $subscriptionId = Choose-Subscription
+
+        # Prompt user to choose a resource group
+        $resourceGroup = Choose-ResourceGroup
+
+        Write-Host "`nSelect an action:"
+        Write-Host "1. Create VM"
+        Write-Host "2. Create Maintenance Schedule"
+        Write-Host "3. Assign VM to Maintenance Schedule"
+        Write-Host "4. Exit"
+
+        $action = Read-Host "Enter the number corresponding to your choice"
+
+        switch ($action) {
+            "1" {
+                $vmName = Read-Host "Enter the VM name"
+                $vmTypeNumber = Read-Host "Enter the VM type: 1 for Windows, 2 for Linux"
+                if ($vmTypeNumber -eq "1") {
+                    $vmType = "windows"
+                } elseif ($vmTypeNumber -eq "2") {
+                    $vmType = "linux"
+                } else {
+                    Write-Host "Invalid VM type specified. Please enter 1 for Windows or 2 for Linux."
+                    Log-Message "User entered an invalid VM type number."
+                    continue
+                }
+                $location = Read-Host "Enter the location (e.g., westus)"
+
+                # Get the cheapest VM sizes in the specified location
+                $cheapestVMSizes = Get-CheapestVMSizes -location $location
+
+                # Prompt user to select a VM size from the list of cheapest VM sizes
+                $vmSizeIndex = Read-Host "Enter the number corresponding to your choice of VM size"
+                if (-not ($vmSizeIndex -as [int]) -or $vmSizeIndex -lt 1 -or $vmSizeIndex -gt $cheapestVMSizes.Count) {
+                    Write-Host "Invalid selection. Please select a number between 1 and $($cheapestVMSizes.Count)."
+                    Log-Message "User entered an invalid VM size index."
+                    continue
+                }
+
+                # Get the selected VM size
+                $vmSize = $cheapestVMSizes[$vmSizeIndex - 1].Name
+
+                $adminUsername = Read-Host "Enter the administrator username"
+                $vnetName = Read-Host "Enter the virtual network name"
+                $subnetName = Read-Host "Enter the subnet name"
+
+                Create-VM -vmName $vmName -vmType $vmType -location $location -resourceGroup $resourceGroup -vmSize $vmSize -adminUsername $adminUsername -vnetName $vnetName -subnetName $subnetName
+            }
+            "2" {
+                $scheduleName = Read-Host "Enter the maintenance schedule name"
+                $location = Read-Host "Enter the location (e.g., eastus)"
+                Write-Host "Select the maintenance scope:"
+                Write-Host "1. Extension"
+                Write-Host "2. Host"
+                Write-Host "3. InGuestPatch"
+                Write-Host "4. OSImage"
+                Write-Host "5. Resource"
+                Write-Host "6. SQLDB"
+                Write-Host "7. SQLManagedInstance"
+                $maintenanceScopeNumber = Read-Host "Enter the number corresponding to your choice"
+                switch ($maintenanceScopeNumber) {
+                    "1" { $maintenanceScope = "Extension" }
+                    "2" { $maintenanceScope = "Host" }
+                    "3" { $maintenanceScope = "InGuestPatch" }
+                    "4" { $maintenanceScope = "OSImage" }
+                    "5" { $maintenanceScope = "Resource" }
+                    "6" { $maintenanceScope = "SQLDB" }
+                    "7" { $maintenanceScope = "SQLManagedInstance" }
+                    default { 
+                        Write-Host "Invalid maintenance scope specified."
+                        Log-Message "User entered an invalid maintenance scope number."
+                        continue
+                    }
+                }
+                Create-MaintenanceSchedule -scheduleName $scheduleName -location $location -maintenanceScope $maintenanceScope -resourceGroup $resourceGroup
+            }
+            "3" {
+                $scheduleName = Read-Host "Enter the maintenance schedule name"
+                Assign-MaintenanceSchedule -subscriptionId $subscriptionId -scheduleName $scheduleName -resourceGroup $resourceGroup
+            }
+            "4" {
+                Write-Host "Exiting script."
+                Log-Message "User exited the script."
+                break
+            }
+            default {
+                Write-Host "Invalid action specified."
+                Log-Message "User selected an invalid action."
+            }
+        }
+
+        Write-Host "`nAction completed. What would you like to do next?"
+
+    } catch {
+        Write-Host "An error occurred in the main script loop: $_"
+        Log-Message "Error in main script loop: $_"
+    }
+
+} while ($action -ne "4")
+
+Write-Host "Script execution completed."
+Log-Message "Script execution completed."
