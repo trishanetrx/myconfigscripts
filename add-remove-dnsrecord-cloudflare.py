@@ -77,13 +77,19 @@ if __name__ == "__main__":
     # User interaction loop
     while True:
         print("\nWhat would you like to do?")
-        print("1. Add a new DNS record")
-        print("2. Delete an existing DNS record")
-        print("3. Exit")
+        print("1. View current DNS records")
+        print("2. Add a new DNS record")
+        print("3. Delete an existing DNS record")
+        print("4. Exit")
 
-        choice = input("Enter your choice (1/2/3): ")
+        choice = input("Enter your choice (1/2/3/4): ")
 
         if choice == '1':
+            # View current DNS records
+            dns_records = list_dns_records(api_token)
+            print_dns_records(dns_records)
+
+        elif choice == '2':
             # Add a new DNS record
             print("Select record type:")
             record_types = ["A", "AAAA", "CNAME", "MX", "TXT", "SRV", "NS", "PTR", "CAA"]
@@ -102,7 +108,7 @@ if __name__ == "__main__":
             if new_record:
                 print("Added DNS Record:", new_record)
 
-        elif choice == '2':
+        elif choice == '3':
             # Delete an existing DNS record
             dns_records = list_dns_records(api_token)  # Fetch updated list before deletion
             print_dns_records(dns_records)
@@ -122,10 +128,10 @@ if __name__ == "__main__":
             dns_records = list_dns_records(api_token)
             print_dns_records(dns_records)
 
-        elif choice == '3':
+        elif choice == '4':
             # Exit the program
             print("Exiting...")
             break
 
         else:
-            print("Invalid choice. Please enter 1, 2, or 3.")
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
