@@ -85,7 +85,15 @@ if __name__ == "__main__":
 
         if choice == '1':
             # Add a new DNS record
-            record_type = input("Enter record type (A/CNAME/MX, etc.): ")
+            print("Select record type:")
+            record_types = ["A", "AAAA", "CNAME", "MX", "TXT", "SRV", "NS", "PTR", "CAA"]
+            for idx, record_type in enumerate(record_types, start=1):
+                print(f"{idx}. {record_type}")
+            record_type_choice = input("Enter the number of the record type or 'b' to go back: ")
+            if record_type_choice.lower() == 'b':
+                continue
+            record_type = record_types[int(record_type_choice) - 1]
+
             name = input("Enter record name: ")
             content = input("Enter record content: ")
             proxied = input("Is the record proxied? (True/False): ").lower() == 'true'
@@ -99,7 +107,10 @@ if __name__ == "__main__":
             dns_records = list_dns_records(api_token)  # Fetch updated list before deletion
             print_dns_records(dns_records)
 
-            delete_choices = input("Enter the numbers of the records to delete (e.g., 1 3 4): ")
+            delete_choices = input("Enter the numbers of the records to delete (e.g., 1 3 4) or 'b' to go back: ")
+            if delete_choices.lower() == 'b':
+                continue
+
             delete_ids = [dns_records['result'][int(idx)-1]['id'] for idx in delete_choices.split() if int(idx) <= len(dns_records['result'])]
             
             for record_id in delete_ids:
