@@ -27,11 +27,9 @@ def install_terraform():
         if distro == "ubuntu" or distro == "debian":
             print("Installing Terraform on Ubuntu/Debian...")
 
-            # Update package lists and install required packages
             subprocess.run(["sudo", "apt-get", "update"], check=True)
             subprocess.run(["sudo", "apt-get", "install", "-y", "gnupg", "software-properties-common"], check=True)
 
-            # Add HashiCorp GPG key and store it correctly
             wget_process = subprocess.Popen(["wget", "-O-", "https://apt.releases.hashicorp.com/gpg"], stdout=subprocess.PIPE)
             gpg_process = subprocess.Popen(["gpg", "--dearmor"], stdin=wget_process.stdout, stdout=subprocess.PIPE)
             with open("/usr/share/keyrings/hashicorp-archive-keyring.gpg", "wb") as f:
@@ -40,18 +38,14 @@ def install_terraform():
             wget_process.wait()
             gpg_process.wait()
 
-            # Display the fingerprint of the added key
             subprocess.run(["gpg", "--no-default-keyring", "--keyring", 
                             "/usr/share/keyrings/hashicorp-archive-keyring.gpg", "--fingerprint"], check=True)
 
-            # Get Ubuntu release name (e.g., jammy, focal)
             ubuntu_release = subprocess.run(["lsb_release", "-cs"], stdout=subprocess.PIPE, text=True).stdout.strip()
 
-            # Add the official HashiCorp repository with correct release name
             repo_entry = f"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {ubuntu_release} main"
             subprocess.run(["sudo", "tee", "/etc/apt/sources.list.d/hashicorp.list"], input=repo_entry, text=True, check=True)
 
-            # Update package lists and install Terraform
             subprocess.run(["sudo", "apt-get", "update"], check=True)
             subprocess.run(["sudo", "apt-get", "install", "-y", "terraform"], check=True)
 
@@ -78,16 +72,13 @@ def download_and_install_terraform(url, os_type):
     terraform_zip = "terraform.zip"
     terraform_dir = os.path.join(os.getcwd(), "terraform")
 
-    # Download Terraform
     urllib.request.urlretrieve(url, terraform_zip)
     
-    # Unzip the Terraform zip
     with zipfile.ZipFile(terraform_zip, 'r') as zip_ref:
         zip_ref.extractall(terraform_dir)
 
     terraform_binary = os.path.join(terraform_dir, "terraform.exe" if os_type == "windows" else "terraform")
 
-    # Move binary to PATH (e.g., C:\Windows\System32 for Windows or /usr/local/bin for Linux)
     if os_type == "windows":
         destination = os.path.join(os.environ['WINDIR'], 'System32', 'terraform.exe')
     else:
@@ -96,7 +87,6 @@ def download_and_install_terraform(url, os_type):
     shutil.move(terraform_binary, destination)
     print(f"Terraform installed at {destination}")
 
-    # Cleanup
     os.remove(terraform_zip)
     shutil.rmtree(terraform_dir)
 
@@ -110,87 +100,93 @@ def create_folder(destination):
     except Exception as e:
         print(f"Error creating folder: {e}")
 
-def write_terraform_config(cloud_platform, destination):
+def write_terraform_config(cloud_platform, destination, config_params):
     terraform_template = {
-        "aws": """
-terraform {
-  required_providers {
-    aws = {
+        "aws": f"""
+terraform {{
+  required_providers {{
+    aws = {{
       source = "hashicorp/aws"
       version = ">= 3.0.0"
-    }
-  }
-}
+    }}
+  }}
+}}
 
-provider "aws" {
-  region = "us-west-2"
-}
+provider "aws" {{
+  access_key = "{config_params.get('aws_access_key', '')}"
+  secret_key = "{config_params.get('aws_secret_key', '')}"
+  region     = "us-west-2"
+}}
 
-resource "aws_instance" "example" {
+resource "aws_instance" "example" {{
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t2.micro"
-}
+}}
 """,
-        "azure": """
-terraform {
-  required_providers {
-    azurerm = {
+        "azure": f"""
+terraform {{
+  required_providers {{
+    azurerm = {{
       source = "hashicorp/azurerm"
       version = ">= 2.0.0"
-    }
-  }
-}
+    }}
+  }}
+}}
 
-provider "azurerm" {
-  features {}
-}
+provider "azurerm" {{
+  subscription_id = "{config_params.get('azure_subscription_id', '')}"
+  client_id       = "{config_params.get('azure_client_id', '')}"
+  client_secret   = "{config_params.get('azure_client_secret', '')}"
+  tenant_id       = "{config_params.get('azure_tenant_id', '')}"
+  features        {{}}
+}}
 
-resource "azurerm_resource_group" "example" {
+resource "azurerm_resource_group" "example" {{
   name     = "example-resources"
   location = "West Europe"
-}
+}}
 """,
-        "digitalocean": """
-terraform {
-  required_providers {
-    digitalocean = {
+        "digitalocean": f"""
+terraform {{
+  required_providers {{
+    digitalocean = {{
       source = "digitalocean/digitalocean"
       version = ">= 2.0.0"
-    }
-  }
-}
+    }}
+  }}
+}}
 
-provider "digitalocean" {
-  token = var.digitalocean_token
-}
+provider "digitalocean" {{
+  token = "{config_params.get('do_token', '')}"
+}}
 
-resource "digitalocean_droplet" "example" {
+resource "digitalocean_droplet" "example" {{
   image  = "ubuntu-20-04-x64"
   name   = "example-droplet"
   region = "nyc1"
   size   = "s-1vcpu-1gb"
-}
+}}
 """,
-        "linode": """
-terraform {
-  required_providers {
-    linode = {
+        "linode": f"""
+terraform {{
+  required_providers {{
+    linode = {{
       source = "linode/linode"
       version = ">= 1.16.0"
-    }
-  }
-}
+    }}
+  }}
+}}
 
-provider "linode" {
-  token = var.linode_token
-}
+provider "linode" {{
+  token = "{config_params.get('linode_token', '')}"
+}}
 
-resource "linode_instance" "example" {
+resource "linode_instance" "example" {{
   image   = "linode/ubuntu22.04"
   region  = "us-east"
   type    = "g6-nanode-1"
   label   = "example-instance"
-}
+}}
 """
     }
     
@@ -235,34 +231,44 @@ def get_cloud_platform():
         print("Invalid input. Please enter a number.")
         return get_cloud_platform()
 
+def get_config_params(cloud_platform):
+    config_params = {}
+    
+    if cloud_platform == 'aws':
+        config_params['aws_access_key'] = input("Enter your AWS Access Key: ").strip()
+        config_params['aws_secret_key'] = input("Enter your AWS Secret Key: ").strip()
+    
+    elif cloud_platform == 'azure':
+        config_params['azure_subscription_id'] = input("Enter your Azure Subscription ID: ").strip()
+        config_params['azure_client_id'] = input("Enter your Azure Client ID: ").strip()
+        config_params['azure_client_secret'] = input("Enter your Azure Client Secret: ").strip()
+        config_params['azure_tenant_id'] = input("Enter your Azure Tenant ID: ").strip()
+    
+    elif cloud_platform == 'digitalocean':
+        config_params['do_token'] = input("Enter your DigitalOcean token: ").strip()
+
+    elif cloud_platform == 'linode':
+        config_params['linode_token'] = input("Enter your Linode token: ").strip()
+
+    return config_params
 
 def main():
     print("Welcome to Terraform Project Setup")
 
-    # Check if Terraform is installed, and install if it's not
     if not is_terraform_installed():
         print("Terraform is not installed. Installing Terraform...")
         install_terraform()
 
-    # Select cloud platform by number
     cloud_platform = get_cloud_platform()
     
-    # Ask for destination folder
     destination_folder = input("Enter the destination folder path: ").strip()
 
-    # Additional user inputs like tokens, etc.
-    if cloud_platform == 'digitalocean':
-        do_token = input("Enter your DigitalOcean token: ").strip()
-    elif cloud_platform == 'linode':
-        linode_token = input("Enter your Linode token: ").strip()
+    config_params = get_config_params(cloud_platform)
 
-    # Create the folder
     create_folder(destination_folder)
     
-    # Write the Terraform config based on the cloud platform
-    write_terraform_config(cloud_platform, destination_folder)
+    write_terraform_config(cloud_platform, destination_folder, config_params)
     
-    # Initialize the Terraform project
     terraform_init(destination_folder)
 
 if __name__ == "__main__":
