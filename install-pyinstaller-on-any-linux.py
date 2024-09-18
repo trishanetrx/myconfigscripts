@@ -60,6 +60,10 @@ def install_pyinstaller():
                 with open(os.path.expanduser("~/.bashrc"), "a") as bashrc:
                     bashrc.write(f'\nexport PATH="{local_bin_path}:$PATH"\n')
                 os.environ["PATH"] += os.pathsep + local_bin_path
+                # Display command for the user to run
+                print("\nPlease run the following command to apply the PATH changes:")
+                print("\n    source ~/.bashrc\n")
+
         elif distro in ["rhel", "centos", "fedora"]:
             # Keep Red Hat settings as fixed previously
             if local_bin_path not in os.environ["PATH"]:
@@ -67,6 +71,8 @@ def install_pyinstaller():
                 with open(os.path.expanduser("~/.bashrc"), "a") as bashrc:
                     bashrc.write(f'\nexport PATH="{local_bin_path}:$PATH"\n')
                 os.environ["PATH"] += os.pathsep + local_bin_path
+                # Reload .bashrc for current session
+                subprocess.run(["source ~/.bashrc"], shell=True)
 
         # Step 7: Verify PyInstaller installation
         print("Verifying PyInstaller installation...")
