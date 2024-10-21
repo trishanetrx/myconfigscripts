@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Define the output file paths for servera and serverb
+output_files=("/home/student/output-servera" "/home/student/output-serverb")
+
+# Define the servers
+servers=("servera" "serverb")
+
+# Loop through servers and output files
+for i in "${!servers[@]}"; do
+    server=${servers[$i]}
+    output_file=${output_files[$i]}
+
+    # Clear the output file for new data
+    > "$output_file"
+
+    # 1. Get the hostname -f
+    echo "Collecting hostname for $server..."
+    ssh "$server" "hostname -f" >> "$output_file"
+
+    # Append hash signs
+    echo "#####" >> "$output_file"
+
+    # 2. Get lscpu output (lines starting with CPU)
+    echo "Collecting CPU info for $server..."
+    ssh "$server" "lscpu | grep '^CPU'" >> "$output_file"
+
+    # Append hash signs
+    echo "#####" >> "$output_file"
+
+    # 3. Get /etc/selinux/config (ignoring empty lines and comments)
+    echo "Collecting SELinux config for $server..."
+    ssh "$server" "grep -vE '^#|^$' /etc/selinux/config" >> "$output_file"
+
+    # Append hash signs
+    echo "#####" >> "$output_file"
+
+    # 4. Get /var/log/secure (Failed password entries)
+    echo "Collecting failed password attempts for $server..."
+    ssh "$server" "grep 'Failed password' /var/log/secure" >> "$output_file"
+
+    # Append hash signs
+    echo "#####" >> "$output_file"
+
+    echo "Finished gathering data for $server."
+done
+
+echo "Data collection complete. Check the output files in /home/student."
