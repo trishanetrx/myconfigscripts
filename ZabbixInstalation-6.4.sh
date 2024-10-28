@@ -65,6 +65,10 @@ if [ ! -f /etc/systemd/system/zabbix-server.service  ]; then
 	log "Installing MySQL..."
 	sudo -E apt-get -y update >> $logfile 2>&1
 	sudo -E apt-get -y install mysql-server mysql-client >> $logfile 2>&1
+       # Start MySQL service after installation
+        log "Starting MySQL service..."
+        sudo systemctl start mysql >> $logfile 2>&
+ 
 	# Secure MySQL, create zabbix DB, zabbix user and zbx_monitor user.
 	sudo -E mysql --user=root <<_EOF_
 SET GLOBAL log_bin_trust_function_creators = 1;
