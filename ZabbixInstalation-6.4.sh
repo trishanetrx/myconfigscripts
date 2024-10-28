@@ -275,3 +275,23 @@ log "Starting Zabbix Agent 2..."
 sudo -E service zabbix-agent2 start >> $logfile 2>&1
 log "Removing temp dir $tmpdir"
 rm -rf "$tmpdir" >> $logfile 2>&1
+
+# Display login and link information
+echo "----------------------------------------------------"
+echo "Zabbix Installation Complete"
+echo "----------------------------------------------------"
+echo "Access the Zabbix web interface at: http://<your-server-ip>/zabbix"
+echo ""
+echo "Zabbix Web Interface Login:"
+echo "Username: Admin"
+echo "Password: zabbix"
+echo ""
+echo "Zabbix Database Configuration:"
+echo "Database Name: zabbix"
+echo "Database User: zabbix"
+echo "Database Password: zabbixZaq!2wsx"
+echo ""
+echo "----------------------------------------------------"
+echo "IMPORTANT: For security, please change the default password"
+echo "           after your first login to the Zabbix web interface."
+echo "----------------------------------------------------"
