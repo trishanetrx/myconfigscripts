@@ -2,8 +2,8 @@
 
 sudo apt update
 
-# Install default JDK
-sudo apt install default-jdk -y
+# Install OpenJDK 17
+sudo apt install openjdk-17-jdk -y
 
 # Add PostgreSQL repository and install PostgreSQL 15
 wget -q https://www.postgresql.org/media/keys/ACCC4CF8.asc -O - | sudo apt-key add -
