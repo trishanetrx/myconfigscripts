@@ -236,7 +236,8 @@ Add-ToPath $AzureCLIPath
 # Define the restart function
 function Restart-PowerShell {
     Write-Host "Restarting PowerShell session..."
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Start-Sleep -Seconds 2"  # Adjust as needed
+    # Run multiple commands after restarting the PowerShell session
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "az --version; aws --version; git --version"  
     Exit  # Close the current session
 }
 
