@@ -233,6 +233,16 @@ Add-ToPath $AzureCLIPath
 #$AzureCLIPath = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin"
 #Add-ToPath $AzureCLIPath
 
+# Define the restart function
+function Restart-PowerShell {
+    Write-Host "Restarting PowerShell session..."
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Start-Sleep -Seconds 2"  # Adjust as needed
+    Exit  # Close the current session
+}
+
+# Call the restart function
+Restart-PowerShell
+
 # Run all installations
 Install-Python
 Install-Pip
