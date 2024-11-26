@@ -16,6 +16,21 @@ function LogInstallation {
     Add-Content -Path $logFilePath -Value "$cliName installed successfully."
 }
 
+# Function to add a directory to the system PATH
+function Add-ToPath {
+    param([string]$PathToAdd)
+    if (-not ($env:Path -like "*$PathToAdd*")) {
+        [System.Environment]::SetEnvironmentVariable(
+            "Path",
+            $env:Path + ";$PathToAdd",
+            [System.EnvironmentVariableTarget]::Machine
+        )
+        Write-Host "$PathToAdd added to PATH."
+    } else {
+        Write-Host "$PathToAdd is already in PATH."
+    }
+}
+
 # Function to check and install Python if not present
 function Install-Python {
     if (IsInstalled "Python") {
@@ -33,6 +48,11 @@ function Install-Python {
         LogInstallation "Python"
         Remove-Item $PythonInstaller -Force
     }
+    # Add Python and pip to PATH
+    $PythonPath = "C:\Program Files\Python39"
+    $PipPath = "C:\Program Files\Python39\Scripts"
+    Add-ToPath $PythonPath
+    Add-ToPath $PipPath
 }
 
 # Function to install pip if not available
@@ -52,6 +72,9 @@ function Install-Pip {
         LogInstallation "pip"
         Remove-Item $PipInstaller -Force
     }
+    # Ensure pip's Scripts directory is in PATH
+    $PipPath = "C:\Program Files\Python39\Scripts"
+    Add-ToPath $PipPath
 }
 
 # Function to check and install WSL if not present
@@ -86,6 +109,9 @@ function Install-Curl {
         LogInstallation "curl"
         Remove-Item $CurlInstaller -Force
     }
+    # Add curl to PATH
+    $CurlPath = "C:\Program Files\curl"
+    Add-ToPath $CurlPath
 }
 
 # Function to check and install Git if not present
@@ -104,6 +130,9 @@ function Install-Git {
         LogInstallation "Git"
         Remove-Item $GitInstaller -Force
     }
+    # Add Git to PATH
+    $GitPath = "C:\Program Files\Git\bin"
+    Add-ToPath $GitPath
 }
 
 # Function to install AWS CLI
@@ -123,6 +152,9 @@ function Install-AWSCLI {
         LogInstallation "AWS CLI"
         Remove-Item $InstallerPath -Force
     }
+    # Add AWS CLI to PATH
+    $AWSCLIPath = "C:\Program Files\Amazon\AWSCLIV2"
+    Add-ToPath $AWSCLIPath
 }
 
 # Function to install Azure CLI
@@ -142,6 +174,9 @@ function Install-AzureCLI {
         LogInstallation "Azure CLI"
         Remove-Item $InstallerPath -Force
     }
+    # Add Azure CLI to PATH
+    $AzureCLIPath = "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin"
+    Add-ToPath $AzureCLIPath
 }
 
 # Function to install kubectl
@@ -159,7 +194,44 @@ function Install-Kubectl {
         Write-Host "kubectl installed successfully."
         LogInstallation "kubectl"
     }
+    # kubectl is already in the user profile, ensure the path is added
+    Add-ToPath $env:USERPROFILE
 }
+# Function to add specific paths to the system PATH if not already added
+function Add-ToPath {
+    param([string]$PathToAdd)
+    if (-not ($env:Path -like "*$PathToAdd*")) {
+        [System.Environment]::SetEnvironmentVariable(
+            "Path",
+            $env:Path + ";$PathToAdd",
+            [System.EnvironmentVariableTarget]::Machine
+        )
+        Write-Host "$PathToAdd added to PATH."
+    } else {
+        Write-Host "$PathToAdd is already in PATH."
+    }
+}
+
+# Fix for Git
+$GitPath = "C:\Program Files\Git\bin"
+Add-ToPath $GitPath
+# or if Git is installed in a different directory:
+#$GitPath = "C:\Program Files (x86)\Git\bin" 
+#Add-ToPath $GitPath
+
+# Fix for AWS CLI
+$AWSCLIPath = "C:\Program Files\Amazon\AWSCLIV2"
+Add-ToPath $AWSCLIPath
+# In case AWS CLI is installed in a different location:
+#$AWSCLIPath = "C:\Program Files (x86)\Amazon\AWSCLIV2" 
+#Add-ToPath $AWSCLIPath
+
+# Fix for Azure CLI
+$AzureCLIPath = "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin"
+Add-ToPath $AzureCLIPath
+# In case Azure CLI is installed in a different location:
+#$AzureCLIPath = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin"
+#Add-ToPath $AzureCLIPath
 
 # Run all installations
 Install-Python
@@ -170,5 +242,7 @@ Install-Git
 Install-AWSCLI
 Install-AzureCLI
 Install-Kubectl
+
+
 
 Write-Host "All CLI installations are complete. Restart your machine if WSL was installed for changes to take effect."
