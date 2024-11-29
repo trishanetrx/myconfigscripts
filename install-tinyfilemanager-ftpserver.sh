@@ -7,7 +7,7 @@ sudo apt install -y apache2 php php-zip php-mbstring php-curl php-json unzip
 
 # Define the target path for Tiny File Manager
 TINY_DIR="/var/www/html/tinyfilemanager"
-FTP_ROOT_DIR="/home/ftpuser/ftp"
+FTP_ROOT_DIR="/home/new-folder"
 
 # Download Tiny File Manager zip
 echo "Downloading Tiny File Manager..."
