@@ -111,7 +111,7 @@ After=network-online.target
 User=root
 Environment=AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
 ExecStart=/usr/bin/blobfuse2 mount ${mount_dir} --config-file=${config_file}
-ExecStop=/usr/bin/fusermount -u ${mount_dir}
+ExecStop=/usr/bin/fusermount3 -u ${mount_dir}
 Restart=always
 RemainAfterExit=yes
 
