@@ -96,7 +96,25 @@ function Install-PythonWithPip {
     python --version
     pip --version
 }
+function Install-LinodeCLI {
+    if (Get-Command linode-cli -ErrorAction SilentlyContinue) {
+        Log "Linode CLI already installed."
+        return
+    }
 
+    Log "Installing Linode CLI via pip..."
+    pip install linode-cli
+
+    Refresh-EnvPath
+    Start-Sleep -Seconds 2
+
+    if (Get-Command linode-cli -ErrorAction SilentlyContinue) {
+        Log "Linode CLI installation successful."
+        linode-cli --version
+    } else {
+        Log "⚠️ Linode CLI may not have installed correctly."
+    }
+}
 # --- Begin installation steps ---
 $TempDir = "$env:TEMP"
 
