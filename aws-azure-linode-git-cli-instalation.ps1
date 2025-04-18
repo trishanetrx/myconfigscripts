@@ -1,3 +1,4 @@
+
 # Run this script in Administrator PowerShell
 
 # --- Log setup ---
@@ -96,6 +97,8 @@ function Install-PythonWithPip {
     python --version
     pip --version
 }
+
+# --- Linode CLI install via pip ---
 function Install-LinodeCLI {
     if (Get-Command linode-cli -ErrorAction SilentlyContinue) {
         Log "Linode CLI already installed."
@@ -115,10 +118,12 @@ function Install-LinodeCLI {
         Log "⚠️ Linode CLI may not have installed correctly."
     }
 }
+
 # --- Begin installation steps ---
 $TempDir = "$env:TEMP"
 
 Install-PythonWithPip
+Install-LinodeCLI
 
 Install-CLI "Git" `
     "https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.1/Git-2.42.0-64-bit.exe" `
