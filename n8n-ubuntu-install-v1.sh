@@ -19,6 +19,13 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+# --- CUSTOMIZATION ---
+# Set these if you want to hardcode specific values.
+# If left empty, they will be randomly generated or read from existing .env.
+CUSTOM_N8N_ENCRYPTION_KEY="Kf83js9sKJH83kjsdf83KJHSdf83kjsdf8sdf=="
+CUSTOM_N8N_PROXY_HOPS="1"
+# ---------------------
+
 APP_DIR="/opt/n8n"
 DATA_DIR="${APP_DIR}/data"
 POSTGRES_DIR="${APP_DIR}/postgres"
@@ -30,6 +37,7 @@ BACKUP_SCRIPT="/usr/local/bin/n8n-backup"
 CRON_FILE="/etc/cron.d/n8n-backup"
 NGINX_SITE="/etc/nginx/sites-available/n8n"
 NGINX_ENABLED="/etc/nginx/sites-enabled/n8n"
+IMAGE_DIR="/var/www/images"
 
 PORT="5678"
 TZ="Asia/Colombo"
@@ -60,11 +68,31 @@ require_ubuntu() {
 check_hardware() {
   local ram_kb
   ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-  if [[ "${ram_kb}" -lt 1800000 ]]; then
-    warn "This system has less than 2GB of RAM. n8n might be unstable."
+  if [[ "${ram_kb}" -lt 900000 ]]; then
+    warn "This system has less than 1GB of RAM. n8n will likely be unstable."
     echo "Press Ctrl+C to abort or wait 5 seconds to continue anyway..."
     sleep 5
   fi
+}
+
+setup_swap() {
+  if [[ $(swapon --show | wc -l) -gt 0 ]]; then
+    log "Swap already exists, skipping swap creation"
+    return
+  fi
+
+  log "Creating 4GB swap file for memory stability"
+  fallocate -l 4G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
+  
+  # Optimize swap usage
+  sysctl vm.swappiness=10
+  sysctl vm.vfs_cache_pressure=50
+  echo 'vm.swappiness=10' >> /etc/sysctl.conf
+  echo 'vm.vfs_cache_pressure=50' >> /etc/sysctl.conf
 }
 
 command_exists() {
@@ -194,17 +222,21 @@ configure_firewall() {
   ufw --force enable >/dev/null || true
 }
 
-prepare_directories() {
+  prepare_directories() {
   log "Preparing directories"
   ensure_dir "${APP_DIR}"
   ensure_dir "${DATA_DIR}"
   ensure_dir "${BACKUP_DIR}"
+  ensure_dir "${IMAGE_DIR}"
 
-  chmod 700 "${APP_DIR}"
+  # Set parent dir to 755 so container user (1000) can traverse it
+  chmod 755 "${APP_DIR}"
 
-  if id -u 1000 >/dev/null 2>&1; then
-    chown -R 1000:1000 "${DATA_DIR}"
-  fi
+  # Always set ownership to 1000:1000 for the container user
+  chown -R 1000:1000 "${DATA_DIR}"
+  chown -R 1000:1000 "${IMAGE_DIR}"
+
+  chmod 755 "${IMAGE_DIR}"
 
   if [[ "${MODE}" == "domain" ]]; then
     ensure_dir "${POSTGRES_DIR}"
@@ -215,13 +247,15 @@ prepare_directories() {
 load_or_create_env() {
   log "Loading or generating secrets"
 
-  local existing_n8n_key existing_pg_db existing_pg_user existing_pg_pass
+  local existing_n8n_key existing_pg_db existing_pg_user existing_pg_pass existing_proxy_hops
   existing_n8n_key="$(get_existing_env_value "N8N_ENCRYPTION_KEY")"
   existing_pg_db="$(get_existing_env_value "POSTGRES_DB")"
   existing_pg_user="$(get_existing_env_value "POSTGRES_USER")"
   existing_pg_pass="$(get_existing_env_value "POSTGRES_PASSWORD")"
+  existing_proxy_hops="$(get_existing_env_value "N8N_PROXY_HOPS")"
 
-  N8N_ENCRYPTION_KEY="${existing_n8n_key:-$(generate_secret 32)}"
+  N8N_ENCRYPTION_KEY="${existing_n8n_key:-${CUSTOM_N8N_ENCRYPTION_KEY:-$(generate_secret 32)}}"
+  N8N_PROXY_HOPS="${existing_proxy_hops:-${CUSTOM_N8N_PROXY_HOPS:-1}}"
 
   if [[ "${MODE}" == "domain" ]]; then
     POSTGRES_DB="${existing_pg_db:-n8n}"
@@ -233,6 +267,10 @@ load_or_create_env() {
     cat > "${ENV_FILE}" <<EOF
 N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
 TZ=${TZ}
+NODE_FUNCTION_ALLOW_EXTERNAL=sharp
+NODE_PATH=/home/node/.n8n/node_modules
+N8N_RESTRICT_FILE_ACCESS_TO=${IMAGE_DIR}
+N8N_PROXY_HOPS=${N8N_PROXY_HOPS}
 EOF
   else
     cat > "${ENV_FILE}" <<EOF
@@ -241,6 +279,10 @@ POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_USER=${POSTGRES_USER}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 TZ=${TZ}
+NODE_FUNCTION_ALLOW_EXTERNAL=sharp
+NODE_PATH=/home/node/.n8n/node_modules
+N8N_RESTRICT_FILE_ACCESS_TO=${IMAGE_DIR}
+N8N_PROXY_HOPS=${N8N_PROXY_HOPS}
 EOF
   fi
 
@@ -262,7 +304,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 768M
         reservations:
           memory: 256M
     logging:
@@ -279,11 +321,13 @@ services:
       TZ: ${TZ}
       N8N_SECURE_COOKIE: "false"
       N8N_ENCRYPTION_KEY: \${N8N_ENCRYPTION_KEY}
+      N8N_PROXY_HOPS: \${N8N_PROXY_HOPS}
       DB_TYPE: sqlite
     env_file:
       - ${ENV_FILE}
     volumes:
       - ${DATA_DIR}:/home/node/.n8n
+      - ${IMAGE_DIR}:${IMAGE_DIR}
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:${PORT}/healthz || exit 1"]
       interval: 30s
@@ -316,7 +360,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
     logging:
       driver: "json-file"
       options:
@@ -335,9 +379,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
-        reservations:
           memory: 512M
+        reservations:
+          memory: 256M
     logging:
       driver: "json-file"
       options:
@@ -352,6 +396,7 @@ services:
       TZ: ${TZ}
       N8N_SECURE_COOKIE: "true"
       N8N_ENCRYPTION_KEY: \${N8N_ENCRYPTION_KEY}
+      N8N_PROXY_HOPS: \${N8N_PROXY_HOPS}
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
@@ -362,6 +407,7 @@ services:
       - ${ENV_FILE}
     volumes:
       - ${DATA_DIR}:/home/node/.n8n
+      - ${IMAGE_DIR}:${IMAGE_DIR}
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:${PORT}/healthz || exit 1"]
       interval: 30s
@@ -394,6 +440,11 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location /images/ {
+        alias /var/www/images/;
+        autoindex off;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:${PORT};
@@ -506,6 +557,20 @@ wait_for_n8n() {
   die "n8n failed to become healthy"
 }
 
+install_n8n_node_modules() {
+  log "Installing n8n dependencies (sharp)"
+  # We run as root (-u root) to avoid EACCES errors, then fix ownership back to 1000:1000
+  if docker exec -u root n8n sh -c "cd /home/node/.n8n && npm list sharp" >/dev/null 2>&1; then
+    log "sharp is already installed"
+  else
+    if docker exec -u root n8n sh -c "cd /home/node/.n8n && npm install sharp && chown -R 1000:1000 /home/node/.n8n"; then
+      log "sharp installed successfully"
+    else
+      warn "Failed to install sharp. You might need to install it manually."
+    fi
+  fi
+}
+
 run_certbot() {
   [[ "${MODE}" == "domain" ]] || return
 
@@ -554,6 +619,12 @@ Start:   docker compose -f ${COMPOSE_FILE} up -d
 Stop:    docker compose -f ${COMPOSE_FILE} down
 Logs:    docker compose -f ${COMPOSE_FILE} logs -f
 Backup:  ${BACKUP_SCRIPT}
+
+Notes
+=====
+Public image folder: /var/www/images
+Public image URL: $([[ "${MODE}" == "domain" ]] && echo "https://${DOMAIN}/images/" || echo "http://localhost:${PORT}/images/ (if exposed)")
+n8n image conversion dependency: sharp
 EOF
 
   write_root_only_file "${CREDENTIALS_FILE}"
@@ -582,6 +653,7 @@ show_summary() {
 main() {
   require_ubuntu
   check_hardware
+  setup_swap
   prompt_mode
 
   if [[ "${MODE}" == "domain" ]]; then
@@ -603,6 +675,7 @@ main() {
   fi
 
   start_stack
+  install_n8n_node_modules
   wait_for_n8n
 
   if [[ "${MODE}" == "domain" ]]; then
